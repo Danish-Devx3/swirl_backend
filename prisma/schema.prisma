@@ -1,0 +1,259 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum OtpType {
+  LOGIN
+  REGISTRATION
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+enum OtpStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  USED
+}
+
+enum CartItemStatus {
+  ACTIVE
+  REMOVED
+  PURCHASED
+}
+
+enum WishlistItemStatus {
+  ACTIVE
+  REMOVED
+  PURCHASED
+}
+
+enum InteractionType {
+  VIEW
+  LIKE
+  DISLIKE
+  CART_ADD
+  CART_REMOVE
+  WISHLIST_ADD
+  WISHLIST_REMOVE
+  ORDER_COMPLETE
+  SEARCH_QUERY
+  TIME_SPENT
+}
+
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  phone             String?     @unique
+  name              String
+  avatar            String?
+  role              UserRole    @default(USER)
+  status            UserStatus  @default(PENDING_VERIFICATION)
+  emailVerified     Boolean     @default(false)
+  phoneVerified     Boolean     @default(false)
+  
+  // OTP fields
+  otpCode           String?
+  otpExpiresAt      DateTime?
+  otpAttempts       Int         @default(0)
+  lastOtpSentAt     DateTime?
+  
+  // Security
+  lastLoginAt       DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil       DateTime?
+  
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  cartItems         CartItem[]
+  wishlistItems    WishlistItem[]
+  addresses        Address[]
+  orders           Order[]
+  interactions     UserInteraction[]
+  preferences      UserPreference[]
+  
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
+model Otp {
+  id                String      @id @default(uuid())
+  userId            String?
+  email             String?
+  phone             String?
+  code              String
+  type              OtpType
+  status            OtpStatus   @default(PENDING)
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  attempts          Int         @default(0)
+  maxAttempts       Int         @default(5)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  @@index([email, status])
+  @@index([phone, status])
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model Address {
+  id                String      @id @default(uuid())
+  userId            String
+  type              String      // HOME, WORK, OTHER
+  fullName          String
+  phone             String
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  state             String
+  postalCode        String
+  country           String      @default("India")
+  isDefault         Boolean     @default(false)
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model CartItem {
+  id                String      @id @default(uuid())
+  userId            String
+  itemId            Int         // Reference to AI service item_id
+  quantity          Int         @default(1)
+  status            CartItemStatus @default(ACTIVE)
+  
+  // Item snapshot (for historical reference)
+  itemName          String?
+  itemImage         String?
+  itemPrice         Float?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, itemId, status])
+  @@index([userId, status])
+  @@index([itemId])
+}
+
+model WishlistItem {
+  id                String      @id @default(uuid())
+  userId            String
+  itemId            Int         // Reference to AI service item_id
+  status            WishlistItemStatus @default(ACTIVE)
+  
+  // Item snapshot
+  itemName          String?
+  itemImage         String?
+  itemPrice         Float?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, itemId, status])
+  @@index([userId, status])
+  @@index([itemId])
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  userId            String
+  orderNumber       String      @unique
+  status            String      // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  totalAmount       Float
+  currency          String      @default("INR")
+  
+  // Shipping info
+  shippingAddressId String?
+  shippingAddress  Json?        // Snapshot of address at time of order
+  
+  // Payment info
+  paymentMethod     String?
+  paymentStatus     String?     // PENDING, PAID, FAILED, REFUNDED
+  paymentId         String?
+  
+  // Items snapshot
+  items             Json         // Array of items with details
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// User Interactions for ML Training
+model UserInteraction {
+  id                String          @id @default(uuid())
+  userId            String
+  itemId            Int?            // Null for non-item interactions (search, etc.)
+  interactionType   InteractionType
+  timestamp         DateTime        @default(now())
+  
+  // Additional context
+  metadata          Json?           // { query: "...", duration: 5000, etc. }
+  
+  // Sync status (for AI service)
+  syncedToAI        Boolean         @default(false)
+  syncedAt          DateTime?
+  
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, timestamp])
+  @@index([itemId, timestamp])
+  @@index([interactionType])
+  @@index([syncedToAI])
+  @@index([timestamp])
+}
+
+// User Preferences for Cold Start
+model UserPreference {
+  id                String      @id @default(uuid())
+  userId            String
+  preferenceType    String      // gender, style, price_range, category, etc.
+  preferenceValue   Json        // Flexible value storage
+  updatedAt         DateTime    @updatedAt
+  
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, preferenceType])
+  @@index([userId])
+  @@index([preferenceType])
+}
