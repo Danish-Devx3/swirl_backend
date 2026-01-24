@@ -12,13 +12,15 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AddToCartDto } from './dto/add-to-cart.dto';
+import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 
 @ApiTags('cart')
 @Controller('cart')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class CartController {
-  constructor(private readonly cartService: CartService) {}
+  constructor(private readonly cartService: CartService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get user cart' })
@@ -30,9 +32,13 @@ export class CartController {
   @ApiOperation({ summary: 'Add item to cart' })
   async addToCart(
     @Request() req,
-    @Body() body: { itemId: number; quantity?: number },
+    @Body() addToCartDto: AddToCartDto,
   ) {
-    return this.cartService.addToCart(req.user.id, body.itemId, body.quantity || 1);
+    return this.cartService.addToCart(
+      req.user.id,
+      addToCartDto.itemId,
+      addToCartDto.quantity || 1,
+    );
   }
 
   @Put(':id')
@@ -40,9 +46,13 @@ export class CartController {
   async updateQuantity(
     @Request() req,
     @Param('id') id: string,
-    @Body() body: { quantity: number },
+    @Body() updateCartItemDto: UpdateCartItemDto,
   ) {
-    return this.cartService.updateQuantity(id, req.user.id, body.quantity);
+    return this.cartService.updateQuantity(
+      id,
+      req.user.id,
+      updateCartItemDto.quantity,
+    );
   }
 
   @Delete(':id')

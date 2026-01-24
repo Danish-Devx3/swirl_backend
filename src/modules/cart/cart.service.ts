@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CacheService, CACHE_TTL } from '../../common/cache/cache.service';
 import { EventsService } from '../../common/events/events.service';
 import { CartItemStatus, InteractionType } from '@prisma/client';
+import { ProductService } from './product.service';
 
 @Injectable()
 export class CartService {
@@ -10,7 +11,8 @@ export class CartService {
     private prisma: PrismaService,
     private cache: CacheService,
     private events: EventsService,
-  ) {}
+    private productService: ProductService,
+  ) { }
 
   async getCart(userId: string) {
     // Try cache first
@@ -27,14 +29,37 @@ export class CartService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Cache for 1 minute
-    await this.cache.set(cacheKey, cartItems, CACHE_TTL.CART);
+    // Enrich with real-time product data
+    // We fetch fresh details every time to ensure price/stock accuracy
+    const itemIds = cartItems.map((item) => item.itemId);
+    const products = await this.productService.getProductsByIds(itemIds);
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
-    return cartItems;
+    const enrichedItems = cartItems.map((item) => {
+      const product = productMap.get(item.itemId);
+      return {
+        ...item,
+        // Override snapshot data with fresh data if available
+        itemName: product?.name || item.itemName,
+        itemPrice: product?.price || item.itemPrice,
+        itemImage: product?.image || item.itemImage,
+        // Add stock status
+        inStock: product ? product.stock >= item.quantity : false,
+        availableStock: product?.stock || 0,
+      };
+    });
+
+    // Cache for 1 minute
+    await this.cache.set(cacheKey, enrichedItems, CACHE_TTL.CART);
+
+    return enrichedItems;
   }
 
   async addToCart(userId: string, itemId: number, quantity: number = 1) {
-    // Check if item already in cart
+    // 1. Validate Product Existence & Stock
+    const product = await this.productService.getProductById(itemId);
+
+    // Check if item already in cart to calculate total required stock
     const existing = await this.prisma.cartItem.findFirst({
       where: {
         userId,
@@ -43,28 +68,39 @@ export class CartService {
       },
     });
 
+    const currentQty = existing ? existing.quantity : 0;
+    const newTotalQty = currentQty + quantity;
+
+    if (product.stock < newTotalQty) {
+      throw new BadRequestException(
+        `Insufficient stock. Only ${product.stock} available.`,
+      );
+    }
+
+    // 2. Add or Update
     if (existing) {
       return this.prisma.cartItem.update({
         where: { id: existing.id },
-        data: { quantity: existing.quantity + quantity },
+        data: { quantity: newTotalQty },
       });
     }
 
-    // TODO: Fetch item details from AI service
-    // For now, create with minimal data
     const cartItem = await this.prisma.cartItem.create({
       data: {
         userId,
         itemId,
         quantity,
         status: CartItemStatus.ACTIVE,
+        // Snapshot initial data
+        itemName: product.name,
+        itemPrice: product.price,
+        itemImage: product.image,
       },
     });
 
-    // Record interaction for ML training
+    // 3. Post-Processing
     await this.recordInteraction(userId, itemId, InteractionType.CART_ADD);
 
-    // Emit event for AI service
     await this.events.emitCartEvent({
       userId,
       itemId,
@@ -72,7 +108,6 @@ export class CartService {
       quantity,
     });
 
-    // Invalidate cache
     await this.cache.invalidate(`user:${userId}:cart`);
 
     return cartItem;
@@ -93,7 +128,6 @@ export class CartService {
         },
       });
     } catch (error) {
-      // Log but don't fail cart operation
       console.error('Failed to record interaction:', error);
     }
   }
@@ -111,6 +145,12 @@ export class CartService {
       throw new NotFoundException('Cart item not found');
     }
 
+    // Validate Stock
+    const hasStock = await this.productService.checkStock(item.itemId, quantity);
+    if (!hasStock) {
+      throw new BadRequestException('Requested quantity exceeds available stock');
+    }
+
     return this.prisma.cartItem.update({
       where: { id: cartItemId },
       data: { quantity },
@@ -126,34 +166,28 @@ export class CartService {
       throw new NotFoundException('Cart item not found');
     }
 
-    const updated = await this.prisma.cartItem.update({
+    const deleted = await this.prisma.cartItem.delete({
       where: { id: cartItemId },
-      data: { status: CartItemStatus.REMOVED },
     });
 
-    // Emit event
     await this.events.emitCartEvent({
       userId,
       itemId: item.itemId,
       action: 'remove',
     });
 
-    // Invalidate cache
     await this.cache.invalidate(`user:${userId}:cart`);
 
-    return updated;
+    return deleted;
   }
 
   async clearCart(userId: string) {
-    const result = await this.prisma.cartItem.updateMany({
+    const result = await this.prisma.cartItem.deleteMany({
       where: { userId, status: CartItemStatus.ACTIVE },
-      data: { status: CartItemStatus.REMOVED },
     });
 
-    // Invalidate cache
     await this.cache.invalidate(`user:${userId}:cart`);
 
     return result;
   }
 }
-
