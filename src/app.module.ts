@@ -13,6 +13,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { InteractionsModule } from './modules/interactions/interactions.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -36,9 +37,10 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
     OrdersModule,
     InteractionsModule,
     PreferencesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
 
