@@ -47,9 +47,6 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
-
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -59,8 +56,8 @@ RUN npm ci --only=production && \
     npm cache clean --force
 
 # Copy built application from build stage
-COPY --from=build --chown=appuser:appuser /app/dist ./dist
-COPY --from=build --chown=appuser:appuser /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 
 # Generate Prisma client for production
 RUN npx prisma generate
@@ -70,7 +67,7 @@ ENV NODE_ENV=production \
     PORT=4000
 
 # Switch to non-root user
-USER appuser
+USER node
 
 # Expose port
 EXPOSE 4000
@@ -80,5 +77,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:4000/health || exit 1
 
 # Run database migrations and start the application
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
 
