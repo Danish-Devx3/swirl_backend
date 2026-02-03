@@ -32,7 +32,7 @@ async function main() {
       price: 29.99,
       image: 'https://placehold.co/400x400/png?text=T-Shirt',
       stock: 100,
-      category: 'Apparel',
+      category: 'Top',
     },
     {
       id: 2,
@@ -41,7 +41,7 @@ async function main() {
       price: 49.99,
       image: 'https://placehold.co/400x400/png?text=Jeans',
       stock: 50,
-      category: 'Apparel',
+      category: 'Bottom',
     },
     {
       id: 3,
@@ -50,7 +50,7 @@ async function main() {
       price: 89.99,
       image: 'https://placehold.co/400x400/png?text=Sneakers',
       stock: 0,
-      category: 'Footwear',
+      category: 'Foot',
     },
     {
       id: 4,
@@ -59,7 +59,7 @@ async function main() {
       price: 199.99,
       image: 'https://placehold.co/400x400/png?text=Jacket',
       stock: 5,
-      category: 'Apparel',
+      category: 'Top',
     },
   ];
 

@@ -7,7 +7,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private cache: CacheService,
-  ) {}
+  ) { }
 
   async findById(id: string) {
     // Try cache first
@@ -40,7 +40,7 @@ export class UsersService {
     return user;
   }
 
-  async updateProfile(userId: string, data: { name?: string; avatar?: string }) {
+  async updateProfile(userId: string, data: { name?: string; avatar?: string; email?: string; phone?: string }) {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data,

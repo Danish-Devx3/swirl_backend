@@ -22,7 +22,7 @@ export class VerifyOtpDto {
 
   @ApiProperty({
     description: 'OTP code',
-    example: '123456',
+    example: '1234',
     minLength: 4,
     maxLength: 8,
   })

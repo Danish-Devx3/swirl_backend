@@ -1,6 +1,6 @@
 import { Controller, Get, Query, Post, Body, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
 import { ProductsService, UserPreferences } from './products.service';
-import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('products')
@@ -27,17 +27,31 @@ export class ProductsController {
 
     @Post('recommend')
     @ApiOperation({ summary: 'Get product recommendations based on user profile (passed in body)' })
-    recommend(@Body() profile: UserPreferences) {
-        return this.productsService.recommendProducts(profile);
+    @ApiQuery({ name: 'category', required: false, type: String })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    recommend(
+        @Body() profile: UserPreferences,
+        @Query('category') category?: string,
+        @Query('limit') limit: number = 10
+    ) {
+        return this.productsService.recommendProducts(profile, category, Number(limit));
     }
 
     @Post('recommend/user')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({ summary: 'Get product recommendations based on logged-in user\'s saved profile' })
-    recommendForUser(@Request() req) {
-        return this.productsService.recommendProducts(req.user.id);
+    @ApiBody({ schema: { type: 'object', properties: { limit: { type: 'number' }, category: { type: 'string' } } } })
+    async recommendUser(
+        @Request() req,
+        @Query('limit') limit: number = 10,
+        @Query('category') category?: string,
+    ) {
+        const userId = req.user.id;
+        return this.productsService.recommendProducts(userId, category, Number(limit));
     }
+
+
 
     @Post('profile')
     @UseGuards(JwtAuthGuard)

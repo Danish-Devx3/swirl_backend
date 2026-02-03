@@ -23,7 +23,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {
-    this.mockOtpCode = this.configService.get<string>('MOCK_OTP_CODE', '123456');
+    this.mockOtpCode = this.configService.get<string>('MOCK_OTP_CODE', '1234');
     this.otpExpiryMinutes = parseInt(
       this.configService.get<string>('OTP_EXPIRY_MINUTES', '10'),
     );

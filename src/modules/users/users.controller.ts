@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
@@ -18,7 +18,7 @@ export class UsersController {
 
   @Put('me')
   @ApiOperation({ summary: 'Update user profile' })
-  async updateProfile(@Request() req, @Body() body: { name?: string; avatar?: string }) {
+  async updateProfile(@Request() req, @Body() body: { name?: string; avatar?: string; email?: string; phone?: string }) {
     return this.usersService.updateProfile(req.user.id, body);
   }
 }
