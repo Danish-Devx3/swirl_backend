@@ -25,6 +25,30 @@ export class ProductsService {
     };
   }
 
+  search(query: string, page: number = 1, limit: number = 10) {
+    const lowerQuery = query.toLowerCase();
+    const filteredProducts = this.mockProducts.filter(product =>
+      (product.name && product.name.toLowerCase().includes(lowerQuery)) ||
+      (product.brand && product.brand.toLowerCase().includes(lowerQuery)) ||
+      (product.category && product.category.toLowerCase().includes(lowerQuery)) ||
+      (product.subcategory && product.subcategory.toLowerCase().includes(lowerQuery))
+    );
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedProducts,
+      meta: {
+        total: filteredProducts.length,
+        page,
+        limit,
+        totalPages: Math.ceil(filteredProducts.length / limit),
+      }
+    };
+  }
+
   async saveShopperProfile(userId: string, profile: UserPreferences) {
     // Save as a single preference object or split? 
     // Let's save as 'shopper_profile'

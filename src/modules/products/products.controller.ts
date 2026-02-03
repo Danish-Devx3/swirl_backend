@@ -16,6 +16,15 @@ export class ProductsController {
         return this.productsService.findAll(Number(page), Number(limit));
     }
 
+    @Get('search')
+    @ApiOperation({ summary: 'Search products by query string' })
+    @ApiQuery({ name: 'q', required: true, type: String, description: 'Search query' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    search(@Query('q') query: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+        return this.productsService.search(query, Number(page), Number(limit));
+    }
+
     @Post('recommend')
     @ApiOperation({ summary: 'Get product recommendations based on user profile (passed in body)' })
     recommend(@Body() profile: UserPreferences) {
