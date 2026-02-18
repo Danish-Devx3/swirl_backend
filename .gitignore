@@ -33,6 +33,4 @@ coverage/
 logs/
 *.log
 
-# Prisma
-prisma/migrations/
 
