@@ -10,16 +10,23 @@ import Redis from 'ioredis';
     {
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+        const retryStrategy = (times: number) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        };
+
+        if (redisUrl) {
+          return new Redis(redisUrl, { retryStrategy });
+        }
+
         return new Redis({
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: configService.get<number>('REDIS_PORT', 6379),
           username: configService.get<string>('REDIS_USERNAME', 'default'),
           password: configService.get<string>('REDIS_PASSWORD', ''),
           db: configService.get<number>('REDIS_DB', 0),
-          retryStrategy: (times) => {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
-          },
+          retryStrategy,
         });
       },
       inject: [ConfigService],
